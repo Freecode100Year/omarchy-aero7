@@ -29,6 +29,10 @@ shadow = true
 position = "bottom"
 glass = true
 
+[icons]
+# true = 用 Aero7 玻璃图标套装（应用图标）；false = 不改图标
+set = true
+
 [typography]
 # keep = 不改；或 1.0 / 1.25 / 1.5 / 1.75 / 2.0（100%–200%）
 scale = "keep"

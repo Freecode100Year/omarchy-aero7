@@ -40,11 +40,12 @@ cat <<EOF
   将要修改 · Aero7 will:
     + 安装程序      $APP_DIR
     + 安装主题      $THEMES_DIR/aero7
+    + 安装图标套装  ~/.config/omarchy/icons/aero7（89 个 Aero 玻璃风格应用图标）
     + 设置文件      ~/.config/omarchy-aero7/aero7.toml
     + 窗口外观      ~/.local/state/omarchy/toggles/hypr/zz-aero7.lua
     ~ 切换主题到 aero7，任务栏移到底部并变成玻璃（用 Omarchy 自带命令）
     · 不改快捷键、不改 ~/.config/hypr 里你的文件、不装系统软件、不用 sudo
-    · 先备份当前主题、任务栏和文字大小；随时可以 aero7 restore 恢复
+    · 先备份当前主题、图标套装、任务栏和文字大小；随时可以 aero7 restore 恢复
 
 EOF
 if ! $YES; then
@@ -76,10 +77,11 @@ ln -sfn "$APP_DIR/bin/aero7" "$HOME/.local/bin/aero7"
 "$APP_DIR/bin/aero7" backup
 
 # 7: only theme files — a theme directory of our own.
-say "安装主题 Installing the aero7 theme"
-mkdir -p "$THEMES_DIR"
-rm -rf "${THEMES_DIR:?}/aero7"
+say "安装主题和图标 Installing the aero7 theme and icon set"
+mkdir -p "$THEMES_DIR" "$HOME/.config/omarchy/icons"
+rm -rf "${THEMES_DIR:?}/aero7" "$HOME/.config/omarchy/icons/aero7"
 cp -r "$APP_DIR/theme/aero7" "$THEMES_DIR/aero7"
+cp -r "$APP_DIR/icons/aero7" "$HOME/.config/omarchy/icons/aero7"
 
 # 8-9: check the settings, then apply (apply falls back to the solid level by itself
 # if Hyprland rejects the glass settings).

@@ -1,0 +1,89 @@
+1password	1Password
+aether	Aether
+basecamp	Basecamp
+brave-origin	Brave Origin
+btop	Activity Monitor
+cards	Cards
+chatgpt	ChatGPT
+checkmate	Chess
+chromium	Chromium
+cliamp	cliamp
+com.github.PintaProject.Pinta	Pinta
+com.mitchellh.ghostty	Ghostty
+com.obsproject.Studio	OBS Studio
+disktree	disktree
+fantasi	Fantasi
+folio	Files
+foot	Foot
+gliff	Gliff
+google-chrome	Google Chrome
+google-contacts	Google Contacts
+google-maps	Google Maps
+google-messages	Google Messages
+google-photos	Google Photos
+gvim	Vim
+herdr	Herdr
+herdr-app	Herdr
+hey	HEY
+hype	Hype
+imv	Image Viewer
+kdenlive	Kdenlive
+libreoffice-calc	LibreOffice Calc
+libreoffice-impress	LibreOffice Impress
+libreoffice-writer	LibreOffice Writer
+localsend	LocalSend
+monologue	Monologue
+moonlight	Moonlight
+mpv	Media Player
+netflix	Netflix
+nvim	Neovim
+obsidian	Obsidian
+omacalc	Omacalc
+omacut	Omacut
+omarchy-agent	Agent
+omarchy-agent-agy	Antigravity
+omarchy-agent-amp	Amp
+omarchy-agent-claude	Claude Code
+omarchy-agent-codex	Codex
+omarchy-agent-commandcode	Command Code
+omarchy-agent-copilot	GitHub Copilot
+omarchy-agent-crush	Crush
+omarchy-agent-cursor-agent	Cursor CLI
+omarchy-agent-devin	Devin CLI
+omarchy-agent-dsh	DeepSeek Harness
+omarchy-agent-freebuff	Freebuff
+omarchy-agent-grok	Grok Build
+omarchy-agent-kilo	Kilo
+omarchy-agent-kimi	Kimi
+omarchy-agent-kiro-cli	Kiro CLI
+omarchy-agent-mcode	MiniMax Code
+omarchy-agent-muse	Muse Code
+omarchy-agent-omp	Oh My Pi
+omarchy-agent-opencode	OpenCode
+omarchy-agent-ori	Ori
+omarchy-agent-pi	Pi
+omarchy-agent-qwen	Qwen Code
+omarchy-browser	Browser
+omarchy-discord	Discord
+omarchy-game-vibes	Game Vibes
+omarchy-spotify	Spotify
+omarchy-terminal	Terminal
+omasnap	Omasnap
+omaview	Media Viewer
+omawrite	Omawrite
+org.gnome.DiskUtility	Disks
+org.gnome.Papers	Document Viewer
+plain	Plain
+printer	Print Settings
+rawmakase	RAWmakase
+signal-desktop	Signal
+signed	Signed
+slack	Slack
+spotify-client	Spotify
+superwhisper	Superwhisper
+tailscale	Tailscale
+wechat	WeChat
+whatsapp	WhatsApp
+x	X
+youtube	YouTube
+zoom	Zoom

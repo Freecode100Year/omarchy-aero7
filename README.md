@@ -1,6 +1,8 @@
+<p align="center"><img src="assets/logo.svg" width="128" alt="Omarchy Aero7"></p>
+
 # Omarchy Aero7
 
-给 [Omarchy](https://omarchy.org) 用的蓝色玻璃主题，风格参考 Windows 7 的 Aero：半透明蓝灰玻璃任务栏放在底部，窗口有白色到天蓝的渐变边框、圆角和柔和阴影，菜单和通知是浅色磨砂玻璃，配两张原创的蓝色光带壁纸。
+给 [Omarchy](https://omarchy.org) 用的蓝色玻璃主题，风格参考 Windows 7 的 Aero：半透明蓝灰玻璃任务栏放在底部，窗口有白色到天蓝的渐变边框、圆角和柔和阴影，菜单和通知是浅色磨砂玻璃，配两张原创的蓝色光带壁纸和一套 89 个 Aero 玻璃风格的应用图标（SVG）。
 
 只改外观，不改系统行为：快捷键、窗口管理、工作区、软件、显卡和显示器设置都不动。
 
@@ -22,7 +24,17 @@ curl -fsSL https://raw.githubusercontent.com/Freecode100Year/omarchy-aero7/main/
 curl -fsSL https://gitlab.com/sj9292008133/omarchy-aero7/-/raw/main/scripts/install.sh | bash
 ```
 
-安装时会列出要改的地方，按回车确认。它不需要 `sudo`，先备份你现在的主题、任务栏和文字大小。
+安装时会列出要改的地方，按回车确认。它不需要 `sudo`，先备份你现在的主题、图标套装、任务栏和文字大小。
+
+## 图标
+
+![Aero7 图标](icons/aero7/preview.png)
+
+`icons/aero7/` 是一套 Omarchy 图标套装：Omarchy 自带图标套装覆盖的 89 个应用，每个都画成 Aero 风格的玻璃圆角图标（渐变底色、上半部分高光、底部反光、白色图形）。品牌应用用通用图形表示它做什么（对话气泡、播放键、地球……），不画任何公司的商标。
+
+- 全部是 SVG，只用渐变和路径，没有滤镜、遮罩和裁剪，Omarchy 界面（Qt）、GTK 应用和浏览器显示一致
+- 用 [SVGO](https://github.com/svg/svgo) 压缩，保留每个图标的名称（`<title>`），方便读屏软件
+- 安装 Aero7 时自动启用；不想用就在设置文件里把 `[icons] set` 改成 `false` 再 `aero7 apply`，会换回原来的图标套装
 
 ## 常用命令
 
@@ -63,6 +75,9 @@ shadow = true
 position = "bottom"       # bottom / top / left / right
 glass = true
 
+[icons]
+set = true                # true 用 Aero7 图标套装 / false 不改图标
+
 [typography]
 scale = "keep"            # keep / 1.0 / 1.25 / 1.5 / 1.75 / 2.0
 ```
@@ -71,9 +86,9 @@ Hyprland 和 Omarchy 不直接读这个文件，是 `aero7 apply` 把它转换�
 
 ## 做了什么、没做什么
 
-做到的：Aero 蓝配色，底部玻璃任务栏，浅色磨砂玻璃的开始菜单、启动器和通知，蓝色渐变窗口边框，7 像素圆角，阴影，背景模糊，终端半透明，三档效果，界面缩放，两张 4K 原创壁纸（另附 1080p 和 1440p，在 `wallpapers/`），安装、备份、恢复、卸载。
+做到的：Aero 蓝配色，底部玻璃任务栏，浅色磨砂玻璃的开始菜单、启动器和通知，蓝色渐变窗口边框，7 像素圆角，阴影，背景模糊，终端半透明，三档效果，界面缩放，两张 4K 原创壁纸（另附 1080p 和 1440p，在 `wallpapers/`），89 个 Aero 玻璃应用图标，安装、备份、恢复、卸载。
 
-做不到或暂不做的，原因见 [docs/LIMITATIONS.md](docs/LIMITATIONS.md)：圆形开始按钮和 Windows 7 任务栏布局、每个窗口的 Windows 7 标题栏和按钮、Windows 7 图标和鼠标指针、GTK 应用整体换皮、登录界面。
+做不到或暂不做的，原因见 [docs/LIMITATIONS.md](docs/LIMITATIONS.md)：圆形开始按钮和 Windows 7 任务栏布局、每个窗口的 Windows 7 标题栏和按钮、系统图标（文件夹、音量、电池等）和鼠标指针、GTK 应用整体换皮、登录界面。
 
 ## 文档
 
@@ -85,6 +100,9 @@ Hyprland 和 Omarchy 不直接读这个文件，是 `aero7 apply` 把它转换�
 
 ```bash
 python3 tools/make_wallpapers.py              # 画壁纸（需要 python3-numpy、python3-pil）
+python3 tools/make_icons.py                   # 画图标和 logo（SVG）
+tools/optimize_svg.sh                         # 用 SVGO 压缩全部 SVG（先在 tools/node 里 npm install svgo）
+bash tests/icons_test.sh                      # 检查 89 个图标齐全、合法、能渲染（需要 rsvg-convert）
 python3 tools/build_theme.py ~/omarchy-源码    # 生成 colors.toml / shell.toml / 预览图并检查对比度
 bash tests/cli_test.sh                        # 在模拟的 Omarchy 环境里测试安装、各档效果、恢复和卸载
 ```

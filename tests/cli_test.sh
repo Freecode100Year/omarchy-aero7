@@ -10,6 +10,7 @@ trap 'rm -rf "$T"' EXIT
 export AERO7_ALLOW_ROOT=1 HOME="$T/home" XDG_STATE_HOME="$T/home/.local/state" OMARCHY_PATH="$T/omarchy"
 mkdir -p "$HOME" "$T/bin" "$OMARCHY_PATH/default/hypr" "$T/st"
 touch "$OMARCHY_PATH/default/hypr/toggles.lua"
+mkdir -p "$OMARCHY_PATH/icons/papercraft"
 fails=0
 S="$T/st" # where the stand-ins keep their state
 
@@ -21,6 +22,8 @@ stub omarchy-display-text-size "f=$S/text; case \${1:-} in '') if [[ -f \$f ]]; 
 stub omarchy-theme-bg-set "ln -sfn \"\$1\" \"\$XDG_STATE_HOME/omarchy/current/background\""
 stub hyprctl "case \$1 in configerrors) cat $S/hypr-errors 2>/dev/null ;; version) echo 'Hyprland 0.99 (stub)' ;; esac; true"
 stub omarchy-version "echo 4.0.0-test"
+stub omarchy-icons-current "cat $S/icons"
+stub omarchy-icons-set "[[ \$1 == original || -d \$HOME/.config/omarchy/icons/\$1 || -d \$OMARCHY_PATH/icons/\$1 ]] || exit 1; echo \$1 >$S/icons"
 stub omarchy-restart-hyprctl "true"
 stub omarchy-notification-send "true"
 export PATH="$T/bin:$PATH"
@@ -35,7 +38,7 @@ lua_ok() { ! command -v luac5.4 >/dev/null || luac5.4 -p "$LOOK"; }
 # The desktop before Aero7.
 mkdir -p "$XDG_STATE_HOME/omarchy/current" "$T/walls"
 echo catppuccin >"$XDG_STATE_HOME/omarchy/current/theme.name"
-echo top >"$S/bar-position"; echo none >"$S/bar-background"; echo 14 >"$S/text"
+echo papercraft >"$S/icons"; echo top >"$S/bar-position"; echo none >"$S/bar-background"; echo 14 >"$S/text"
 touch "$T/walls/old.png"; ln -s "$T/walls/old.png" "$XDG_STATE_HOME/omarchy/current/background"
 
 echo "install"
@@ -50,6 +53,8 @@ check "wallpaper set" "[[ \$(readlink $XDG_STATE_HOME/omarchy/current/background
 check "look file valid Lua" "lua_ok"
 check "full: corners 7, blur on, 3 passes" "grep -q 'rounding = 7' $LOOK && grep -q 'enabled = true,' $LOOK && grep -q 'passes = 3' $LOOK"
 check "full: terminals 0.86" "grep -q 'opacity = \"0.86 0.81\"' $LOOK"
+check "icon set installed and selected" "[[ -f $HOME/.config/omarchy/icons/aero7/omarchy-terminal.svg && \$(cat $S/icons) == aero7 ]]"
+check "backup has old icon set" "[[ \$(cat $XDG_STATE_HOME/omarchy-aero7/backup/icons) == papercraft ]]"
 check "text size untouched (scale keep)" "[[ \$(cat $S/text) == 14 ]]"
 
 echo "levels"
@@ -64,6 +69,10 @@ $A apply >/dev/null; check "edited radius and position applied" "grep -q 'roundi
 sed -i 's/^opacity = 0.86/opacity = 2/' "$CFG"
 $A apply >/dev/null 2>&1; check "invalid opacity rejected, look unchanged" "grep -q 'rounding = 12' $LOOK && ! $A validate >/dev/null 2>&1"
 sed -i 's/^opacity = 2/opacity = 0.86/; s/^position = "left"/position = "bottom"/' "$CFG"
+
+sed -i 's/^set = true/set = false/' "$CFG"; $A apply >/dev/null
+check "icons.set = false gives the old set back" "[[ \$(cat $S/icons) == papercraft ]]"
+sed -i 's/^set = false/set = true/' "$CFG"; $A apply >/dev/null
 
 echo "fallback"
 echo "zz-aero7.lua:12: unknown option" >"$S/hypr-errors"
@@ -84,6 +93,7 @@ echo "restore"
 $A restore >/dev/null
 check "theme back" "[[ \$(cat $XDG_STATE_HOME/omarchy/current/theme.name) == catppuccin ]]"
 check "bar back" "[[ \$(cat $S/bar-position) == top && \$(cat $S/bar-background) == none ]]"
+check "icon set back" "[[ \$(cat $S/icons) == papercraft ]]"
 check "text size back" "[[ \$(cat $S/text) == 14 ]]"
 check "wallpaper back" "[[ \$(readlink $XDG_STATE_HOME/omarchy/current/background) == $T/walls/old.png ]]"
 check "look file gone" "[[ ! -f $LOOK ]]"
@@ -92,7 +102,7 @@ echo "uninstall"
 $A apply >/dev/null
 echo "my own setting" >"$HOME/.config/omarchy/themes/my-own-note.txt"
 bash "$HOME/.local/share/omarchy-aero7/scripts/uninstall.sh" >/dev/null 2>&1
-check "theme, config, program removed" "[[ ! -e $HOME/.config/omarchy/themes/aero7 && ! -e $HOME/.config/omarchy-aero7 && ! -e $HOME/.local/share/omarchy-aero7 && ! -e $HOME/.local/bin/aero7 ]]"
+check "theme, config, program removed" "[[ ! -e $HOME/.config/omarchy/themes/aero7 && ! -e $HOME/.config/omarchy/icons/aero7 && ! -e $HOME/.config/omarchy-aero7 && ! -e $HOME/.local/share/omarchy-aero7 && ! -e $HOME/.local/bin/aero7 ]]"
 check "desktop restored" "[[ \$(cat $XDG_STATE_HOME/omarchy/current/theme.name) == catppuccin && \$(cat $S/bar-position) == top ]]"
 check "user's own files kept" "[[ -f $HOME/.config/omarchy/themes/my-own-note.txt ]]"
 

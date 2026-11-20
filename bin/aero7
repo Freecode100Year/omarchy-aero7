@@ -12,7 +12,7 @@
 # if asked, the text size. Every change is recorded first and undone by restore.
 set -uo pipefail
 
-VERSION=1.0.0
+VERSION=1.1.0
 SELF="$(readlink -f "${BASH_SOURCE[0]}")"
 APP_DIR="$(dirname "$(dirname "$SELF")")"
 STATE="${XDG_STATE_HOME:-$HOME/.local/state}"
@@ -92,6 +92,7 @@ validate_config() {
   v="$(cfg window shadow true)"; [[ $v =~ ^(true|false)$ ]] || { echo "window.shadow 只能是 true 或 false"; bad=1; }
   v="$(cfg taskbar position bottom)"; [[ $v =~ ^(top|bottom|left|right)$ ]] || { echo "taskbar.position 只能是 top、bottom、left、right"; bad=1; }
   v="$(cfg taskbar glass true)"; [[ $v =~ ^(true|false)$ ]] || { echo "taskbar.glass 只能是 true 或 false"; bad=1; }
+  v="$(cfg icons set true)"; [[ $v =~ ^(true|false)$ ]] || { echo "icons.set 只能是 true 或 false"; bad=1; }
   v="$(cfg typography scale keep)"; [[ $v =~ ^(keep|1(\.0)?|1\.25|1\.5|1\.75|2(\.0)?)$ ]] || { echo "typography.scale 只能是 keep、1.0、1.25、1.5、1.75 或 2.0（现在是 $v）"; bad=1; }
   return $bad
 }
@@ -112,6 +113,7 @@ cmd_backup() {
     # "text size: 15 px", or "text size: 12 (default) px" when unset (recorded as empty).
     omarchy-display-text-size 2>/dev/null | awk -F': *' '/^text size/ && !/default/ { split($2, a, " "); print a[1] }' >"$BACKUP/text-size"
   fi
+  have omarchy-icons-current && omarchy-icons-current --id >"$BACKUP/icons" 2>/dev/null
   local bg="$STATE/omarchy/current/background"
   [[ -L $bg ]] && readlink "$bg" >"$BACKUP/background"
   date -Iseconds >"$BACKUP/done"
@@ -205,6 +207,20 @@ apply_scale() {
   fi
 }
 
+# The Aero7 icon set lives in ~/.config/omarchy/icons/aero7 (put there by install.sh).
+apply_icons() {
+  have omarchy-icons-set || return 0
+  [[ -d $HOME/.config/omarchy/icons/aero7 ]] || return 0
+  if [[ $(cfg icons set true) == true ]]; then
+    omarchy-icons-set aero7 >/dev/null 2>&1
+  elif [[ $(omarchy-icons-current --id 2>/dev/null) == aero7 ]]; then
+    local v
+    v="$(cat "$BACKUP/icons" 2>/dev/null)"
+    [[ -n $v && $v != aero7 ]] || v=papercraft
+    omarchy-icons-set "$v" >/dev/null 2>&1
+  fi
+}
+
 # Hyprland reports config errors after a reload; if any comes from our file,
 # fall back to the solid level so the desktop always stays usable.
 check_hypr_errors() {
@@ -253,6 +269,7 @@ cmd_apply() {
       omarchy-bar background opaque >/dev/null 2>&1
     fi
   fi
+  apply_icons
   apply_scale
   notify "Aero7 已应用" "效果档位：$(cfg effects level full)；改设置运行 aero7 edit"
 }
@@ -272,6 +289,8 @@ cmd_restore() {
       v="$(cat "$BACKUP/bar-position" 2>/dev/null)"; [[ $v =~ ^(top|bottom|left|right)$ ]] && omarchy-bar position "$v" >/dev/null 2>&1
       v="$(cat "$BACKUP/bar-background" 2>/dev/null)"; [[ $v =~ ^(opaque|glassy|none)$ ]] && omarchy-bar background "$v" >/dev/null 2>&1
     fi
+    v="$(cat "$BACKUP/icons" 2>/dev/null)"
+    [[ -n $v && $v != aero7 ]] && have omarchy-icons-set && omarchy-icons-set "$v" >/dev/null 2>&1
     if have omarchy-display-text-size; then
       v="$(cat "$BACKUP/text-size" 2>/dev/null)"
       if [[ $v =~ ^[0-9]+$ ]]; then omarchy-display-text-size "$v" >/dev/null 2>&1; else omarchy-display-text-size reset >/dev/null 2>&1; fi
@@ -308,6 +327,7 @@ Omarchy Aero7 $VERSION
 透明度 opacity:    $(cfg glass opacity 0.86)   模糊 blur: $(cfg glass blur true) / $(cfg glass blur_strength 8)
 圆角 corners:      $(cfg window corner_radius 7)   边框 border: $(cfg window border_size 2)   阴影 shadow: $(cfg window shadow true)
 任务栏 taskbar:    $(cfg taskbar position bottom)，玻璃 glass: $(cfg taskbar glass true)
+图标 icons:        $(cfg icons set true)（当前套装：$(have omarchy-icons-current && omarchy-icons-current --id 2>/dev/null)）
 文字缩放 scale:    $(cfg typography scale keep)
 设置文件 config:   $CONFIG
 备份 backup:       $([[ -f $BACKUP/done ]] && echo "$BACKUP（$(cat "$BACKUP/done")）" || echo "无 none")
@@ -336,7 +356,7 @@ cmd_edit() {
 
 cmd_uninstall() {
   cmd_restore >/dev/null 2>&1 || true
-  rm -rf "$HOME/.config/omarchy/themes/aero7" "$CONFIG_DIR" "$DATA"
+  rm -rf "$HOME/.config/omarchy/themes/aero7" "$HOME/.config/omarchy/icons/aero7" "$CONFIG_DIR" "$DATA"
   [[ -L $HOME/.local/bin/aero7 ]] && rm -f "$HOME/.local/bin/aero7"
   reload_hypr
   notify "Aero7 已卸载" "桌面已恢复安装前的样子"
