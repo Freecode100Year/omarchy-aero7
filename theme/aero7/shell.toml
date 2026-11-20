@@ -6,11 +6,11 @@
 
 [bar]
 # Alpha companions (where present) range from 0 (invisible) to 1 (opaque).
-background       = "#163c66"
-background-alpha = 0.72
-text             = "#ffffff"
+background       = "#dcecf8"
+background-alpha = 0.9
+text             = "#172b40"
 # Modules calling attention to themselves (recording, voxtype, alerts, updates)
-active           = "#ffd0c8"
+active           = "#b0261c"
 # Cross-axis size at font base-size 12. size-horizontal is the height of
 # top/bottom bars; size-vertical is the width of left/right bars. With
 # scale-with-font enabled, these grow/shrink with [font] base-size.

@@ -12,7 +12,7 @@
 # if asked, the text size. Every change is recorded first and undone by restore.
 set -uo pipefail
 
-VERSION=1.1.0
+VERSION=1.1.1
 SELF="$(readlink -f "${BASH_SOURCE[0]}")"
 APP_DIR="$(dirname "$(dirname "$SELF")")"
 STATE="${XDG_STATE_HOME:-$HOME/.local/state}"

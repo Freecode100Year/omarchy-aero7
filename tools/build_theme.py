@@ -45,7 +45,11 @@ ORDER = ["mode", "", "accent", "selection", "muted", "", "background", "dark_bac
 GLASS_RIM = "rgba(ffffffd9) rgba(74b8e8d9) 90deg"
 # section -> key -> value written over Omarchy's generated shell.toml
 SHELL = {
-    "bar": {"background": "#163c66", "background-alpha": 0.72, "text": "#ffffff", "active": "#ffd0c8", "size-horizontal": 32},
+    # Omarchy's bar panels (battery, network, audio...) draw their text in bar.text
+    # on the popups background, so bar.text must be dark like the other text. The
+    # glassy bar picks a legible text colour over the wallpaper by itself (dark
+    # bar.text or the light theme background), and the opaque bar is light glass.
+    "bar": {"background": "#dcecf8", "background-alpha": 0.9, "text": "#172b40", "active": "#b0261c", "size-horizontal": 32},
     "popups": {"background": "#eaf5fd", "background-alpha": 0.9, "border": GLASS_RIM},
     "tooltip": {"background": "#f7fbfe", "background-alpha": 0.96},
     "notifications": {"background": "#eaf5fd", "background-alpha": 0.9, "border": GLASS_RIM},
@@ -83,6 +87,15 @@ def blend(fg, bg, alpha):
     return "#" + "".join(f"{round(a * alpha + b * (1 - alpha)):02x}" for a, b in zip(rgb(fg), rgb(bg)))
 
 
+def _darker(h, f=1.4):
+    """Qt.darker(colour, 1.4), which the bar panels use for secondary labels (HSV value / f)."""
+    import colorsys
+    r, g, b = (v / 255 for v in rgb(h))
+    hh, ss, vv = colorsys.rgb_to_hsv(r, g, b)
+    r, g, b = colorsys.hsv_to_rgb(hh, ss, vv / f)
+    return "#%02x%02x%02x" % (round(r * 255), round(g * 255), round(b * 255))
+
+
 def check():
     bad = []
     c = COLORS
@@ -99,13 +112,27 @@ def check():
         bad.append("foreground on selection < 4.5")
     # Glass surfaces are see-through: check text against them over both the
     # darkest and the lightest part of the wallpaper.
-    # The bar reserves its own strip of screen, so only the wallpaper (or a light
-    # wallpaper the user picks) is ever behind it; menus can float over anything.
+    # The bar reserves its own strip of screen, so only the wallpaper is behind it;
+    # menus and panels can float over anything.
+    bar = SHELL["bar"]
+    opaque = bar["background"]  # `omarchy bar background opaque` (the solid level)
+    if contrast(bar["text"], opaque) < 4.5:
+        bad.append(f"opaque bar text: {contrast(bar['text'], opaque):.2f} < 4.5")
+    if contrast(bar["active"], opaque) < 3:
+        bad.append(f"opaque bar alert colour: {contrast(bar['active'], opaque):.2f} < 3")
     for wall in ("#082c5c", "#8ccaf0", "#ffffff", "#000000"):
-        bar = blend(SHELL["bar"]["background"], wall, SHELL["bar"]["background-alpha"])
-        for k, need in (("text", 4.5), ("active", 3.0)):
-            if contrast(SHELL["bar"][k], bar) < need:
-                bad.append(f"bar {k} over {wall}: {contrast(SHELL['bar'][k], bar):.2f} < {need}")
+        # Glassy bar: Omarchy draws the bar colour at no more than 35% and picks the
+        # more legible of bar.text and the theme background for the text.
+        glass = blend(bar["background"], wall, min(bar["background-alpha"], 0.35))
+        best = max(contrast(bar["text"], glass), contrast(c["background"], glass))
+        if best < 4.5:
+            bad.append(f"glassy bar text over {wall}: {best:.2f} < 4.5")
+        # Bar panels: bar.text on the popups surface (the bug users saw in v1.0/v1.1).
+        panel = blend(SHELL["popups"]["background"], wall, SHELL["popups"]["background-alpha"])
+        if contrast(bar["text"], panel) < 7:
+            bad.append(f"bar panel text over {wall}: {contrast(bar['text'], panel):.2f} < 7")
+        if contrast(_darker(bar["text"]), panel) < 7:
+            bad.append(f"bar panel labels over {wall}: {contrast(_darker(bar['text']), panel):.2f} < 7")
         for s in ("menu", "launcher", "notifications", "popups"):
             surf = blend(SHELL[s]["background"], wall, SHELL[s]["background-alpha"])
             if contrast(c["foreground"], surf) < 7:
@@ -193,5 +220,5 @@ if __name__ == "__main__":
     if problems:
         sys.exit(1)
     print(f"contrast ok: text {contrast(COLORS['foreground'], COLORS['background']):.1f}:1, "
-          f"bar text over darkest/lightest wallpaper "
-          f"{contrast('#ffffff', blend("#163c66", "#082c5c", 0.72)):.1f}/{contrast('#ffffff', blend("#163c66", "#ffffff", 0.72)):.1f}:1")
+          f"bar panel text {contrast(SHELL['bar']['text'], SHELL['popups']['background']):.1f}:1, "
+          f"opaque bar text {contrast(SHELL['bar']['text'], SHELL['bar']['background']):.1f}:1")
