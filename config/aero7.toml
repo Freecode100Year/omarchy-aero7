@@ -1,0 +1,34 @@
+# Omarchy Aero7 设置 · settings
+# 改完后运行 aero7 apply 生效 · run `aero7 apply` after editing.
+# 本文件只给 aero7 读，Hyprland 和 Omarchy 不直接读它。
+
+[theme]
+# aero-blue（蓝天）或 aero-dusk（暮色）
+variant = "aero-blue"
+
+[effects]
+# full  = 完整玻璃：模糊 + 半透明 + 阴影
+# light = 轻玻璃：模糊减弱、更不透明、阴影变小（显卡吃力时用）
+# solid = 不透明：关掉模糊和透明，只保留蓝色配色（最省电，出问题时的保底档）
+level = "full"
+
+[glass]
+# 终端等半透明窗口的不透明度，0.6–1.0（1.0 = 完全不透明）
+opacity = 0.86
+blur = true
+# 模糊半径 1–20
+blur_strength = 8
+
+[window]
+corner_radius = 7
+border_size = 2
+shadow = true
+
+[taskbar]
+# bottom / top / left / right
+position = "bottom"
+glass = true
+
+[typography]
+# keep = 不改；或 1.0 / 1.25 / 1.5 / 1.75 / 2.0（100%–200%）
+scale = "keep"

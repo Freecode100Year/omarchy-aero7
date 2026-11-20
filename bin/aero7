@@ -1,0 +1,359 @@
+#!/bin/bash
+# Omarchy Aero7 — 风格参考 Windows 7 Aero 的 Omarchy 主题 · an Aero-style theme for Omarchy.
+#
+#   aero7 apply                 按设置文件应用主题 · apply ~/.config/omarchy-aero7/aero7.toml
+#   aero7 level <full|light|solid>   玻璃效果档位 · glass level
+#   aero7 scale <keep|100|125|150|175|200>   界面文字缩放 · text scale
+#   aero7 edit                  打开设置文件 · edit the settings file
+#   aero7 status | validate | backup | restore | uninstall | version
+#
+# Only appearance is touched: the theme, the bar's position and background, the
+# window look (borders, corners, shadow, blur, terminal transparency) and,
+# if asked, the text size. Every change is recorded first and undone by restore.
+set -uo pipefail
+
+VERSION=1.0.0
+SELF="$(readlink -f "${BASH_SOURCE[0]}")"
+APP_DIR="$(dirname "$(dirname "$SELF")")"
+STATE="${XDG_STATE_HOME:-$HOME/.local/state}"
+DATA="$STATE/omarchy-aero7"
+BACKUP="$DATA/backup"
+TOGGLES="$STATE/omarchy/toggles/hypr"
+LOOK="$TOGGLES/zz-aero7.lua"
+CONFIG_DIR="$HOME/.config/omarchy-aero7"
+CONFIG="$CONFIG_DIR/aero7.toml"
+THEME_NAME_FILE="$STATE/omarchy/current/theme.name"
+mkdir -p "$DATA"
+
+have() { command -v "$1" >/dev/null 2>&1; }
+
+notify() {
+  if have omarchy-notification-send; then
+    omarchy-notification-send -g 󰖲 "$1" "${2:-}" >/dev/null 2>&1 || true
+  fi
+  echo "$1${2:+ — $2}"
+}
+
+die() { echo "aero7: $*" >&2; notify "Aero7 出错" "$*"; exit 1; }
+
+reload_hypr() {
+  if have omarchy-restart-hyprctl; then omarchy-restart-hyprctl; else hyprctl reload >/dev/null 2>&1 || true; fi
+}
+
+# cfg <section> <key> <default>: a value from aero7.toml, quotes removed.
+cfg() {
+  local file="$CONFIG"
+  [[ -f $file ]] || file="$APP_DIR/config/aero7.toml"
+  awk -v s="$1" -v k="$2" -v d="$3" '
+    /^[[:space:]]*\[/ { sec = $0; gsub(/[][[:space:]]/, "", sec); next }
+    sec == s && $0 ~ "^[[:space:]]*" k "[[:space:]]*=" {
+      v = $0; sub(/^[^=]*=[[:space:]]*/, "", v); sub(/[[:space:]]*(#.*)?$/, "", v); gsub(/"/, "", v)
+      print v; found = 1; exit
+    }
+    END { if (!found) print d }
+  ' "$file"
+}
+
+# set_cfg <section> <key> <value>: rewrite one value in the user's aero7.toml.
+set_cfg() {
+  ensure_config
+  local tmp
+  tmp="$(mktemp)"
+  awk -v s="$1" -v k="$2" -v v="$3" '
+    /^[[:space:]]*\[/ { sec = $0; gsub(/[][[:space:]]/, "", sec) }
+    sec == s && $0 ~ "^[[:space:]]*" k "[[:space:]]*=" { print k " = " v; next }
+    { print }
+  ' "$CONFIG" >"$tmp" && mv "$tmp" "$CONFIG"
+}
+
+ensure_config() {
+  [[ -f $CONFIG ]] && return
+  mkdir -p "$CONFIG_DIR"
+  cp "$APP_DIR/config/aero7.toml" "$CONFIG"
+}
+
+is_number() { [[ $1 =~ ^[0-9]+(\.[0-9]+)?$ ]]; }
+# float_ok <value> <min> <max>
+float_ok() { is_number "$1" && awk -v v="$1" -v a="$2" -v b="$3" 'BEGIN { exit !(v >= a && v <= b) }'; }
+
+current_theme() { [[ -f $THEME_NAME_FILE ]] && cat "$THEME_NAME_FILE" || echo ""; }
+
+# ------------------------------------------------------------------ validate --
+# Prints one line per problem; returns 1 if there is any.
+validate_config() {
+  local bad=0 v
+  v="$(cfg theme variant aero-blue)"; [[ $v =~ ^aero-(blue|dusk)$ ]] || { echo "theme.variant 只能是 aero-blue 或 aero-dusk（现在是 $v）"; bad=1; }
+  v="$(cfg effects level full)"; [[ $v =~ ^(full|light|solid)$ ]] || { echo "effects.level 只能是 full、light 或 solid（现在是 $v）"; bad=1; }
+  v="$(cfg glass opacity 0.86)"; float_ok "$v" 0.6 1.0 || { echo "glass.opacity 要在 0.6 到 1.0 之间（现在是 $v）"; bad=1; }
+  v="$(cfg glass blur true)"; [[ $v =~ ^(true|false)$ ]] || { echo "glass.blur 只能是 true 或 false"; bad=1; }
+  v="$(cfg glass blur_strength 8)"; [[ $v =~ ^[0-9]+$ ]] && ((v >= 1 && v <= 20)) || { echo "glass.blur_strength 要在 1 到 20 之间（现在是 $v）"; bad=1; }
+  v="$(cfg window corner_radius 7)"; [[ $v =~ ^[0-9]+$ ]] && ((v <= 20)) || { echo "window.corner_radius 要在 0 到 20 之间（现在是 $v）"; bad=1; }
+  v="$(cfg window border_size 2)"; [[ $v =~ ^[0-9]+$ ]] && ((v <= 8)) || { echo "window.border_size 要在 0 到 8 之间（现在是 $v）"; bad=1; }
+  v="$(cfg window shadow true)"; [[ $v =~ ^(true|false)$ ]] || { echo "window.shadow 只能是 true 或 false"; bad=1; }
+  v="$(cfg taskbar position bottom)"; [[ $v =~ ^(top|bottom|left|right)$ ]] || { echo "taskbar.position 只能是 top、bottom、left、right"; bad=1; }
+  v="$(cfg taskbar glass true)"; [[ $v =~ ^(true|false)$ ]] || { echo "taskbar.glass 只能是 true 或 false"; bad=1; }
+  v="$(cfg typography scale keep)"; [[ $v =~ ^(keep|1(\.0)?|1\.25|1\.5|1\.75|2(\.0)?)$ ]] || { echo "typography.scale 只能是 keep、1.0、1.25、1.5、1.75 或 2.0（现在是 $v）"; bad=1; }
+  return $bad
+}
+
+# -------------------------------------------------------------------- backup --
+# Records what Aero7 is about to change, once. Later applies never overwrite it,
+# so restore always goes back to the desktop as it was before the first install.
+cmd_backup() {
+  if [[ -f $BACKUP/done ]]; then
+    echo "已有备份 backup exists: $BACKUP"
+    return
+  fi
+  mkdir -p "$BACKUP"
+  current_theme >"$BACKUP/theme"
+  have omarchy-bar && omarchy-bar position >"$BACKUP/bar-position" 2>/dev/null
+  have omarchy-bar && omarchy-bar background >"$BACKUP/bar-background" 2>/dev/null
+  if have omarchy-display-text-size; then
+    # "text size: 15 px", or "text size: 12 (default) px" when unset (recorded as empty).
+    omarchy-display-text-size 2>/dev/null | awk -F': *' '/^text size/ && !/default/ { split($2, a, " "); print a[1] }' >"$BACKUP/text-size"
+  fi
+  local bg="$STATE/omarchy/current/background"
+  [[ -L $bg ]] && readlink "$bg" >"$BACKUP/background"
+  date -Iseconds >"$BACKUP/done"
+  echo "已备份 backed up to $BACKUP"
+}
+
+# --------------------------------------------------------------------- apply --
+write_look() {
+  local level radius border shadow blur strength opacity
+  level="$(cfg effects level full)"
+  radius="$(cfg window corner_radius 7)"
+  border="$(cfg window border_size 2)"
+  shadow="$(cfg window shadow true)"
+  blur="$(cfg glass blur true)"
+  strength="$(cfg glass blur_strength 8)"
+  opacity="$(cfg glass opacity 0.86)"
+
+  local passes=3 range=18 power=3
+  case $level in
+    light)
+      strength=$(((strength + 1) / 2)); ((strength < 2)) && strength=2
+      passes=1; range=8; power=2
+      opacity="$(awk -v o="$opacity" 'BEGIN { o += 0.08; if (o > 1) o = 1; printf "%.2f", o }')"
+      ;;
+    solid) blur=false; opacity=1.0; shadow=false ;;
+  esac
+  local inactive
+  inactive="$(awk -v o="$opacity" 'BEGIN { o -= 0.05; if (o < 0.55) o = 0.55; printf "%.2f", o }')"
+  [[ $opacity == 1.0 ]] && inactive=1.0
+
+  mkdir -p "$TOGGLES"
+  {
+    echo "-- Omarchy Aero7 window look. Generated by \`aero7 apply\` from $CONFIG"
+    echo "-- (level: $level). Do not edit: change aero7.toml and run aero7 apply."
+    echo "hl.config({"
+    echo "  general = { border_size = $border },"
+    echo "  decoration = {"
+    echo "    rounding = $radius,"
+    echo "    rounding_power = 2,"
+    echo "    shadow = {"
+    echo "      enabled = $shadow,"
+    echo "      range = $range,"
+    echo "      render_power = $power,"
+    echo "      color = \"rgba(0b2a4a59)\","
+    echo "      color_inactive = \"rgba(0b2a4a2e)\","
+    echo "    },"
+    echo "    blur = {"
+    echo "      enabled = $blur,"
+    echo "      size = $strength,"
+    echo "      passes = $passes,"
+    echo "      new_optimizations = true,"
+    echo "      xray = false,"
+    echo "      noise = 0.012,"
+    echo "      contrast = 1.0,"
+    echo "      brightness = 1.0,"
+    echo "      vibrancy = 0.2,"
+    echo "      popups = true,"
+    echo "    },"
+    echo "  },"
+    echo "})"
+    echo
+    echo "-- Glass where Aero had it: terminals and the other apps Omarchy already makes"
+    echo "-- see-through. Browsers, documents and videos stay solid so text stays sharp."
+    echo "o.window({ tag = \"transparent-window\" }, { opacity = \"$opacity $inactive\" })"
+    if [[ $blur == true ]]; then
+      echo
+      echo "-- Blur behind the taskbar, menus, launcher and notifications."
+      echo "hl.layer_rule({"
+      echo "  match = { namespace = \"^(omarchy-bar|omarchy-menu|omarchy-notifications|omarchy-osd|omarchy-polkit|omarchy-reminders|omarchy-clipboard|omarchy-emojis|omarchy-image-selector|omarchy-keyboard-panel)\$\" },"
+      echo "  blur = true,"
+      echo "  ignore_alpha = 0.3,"
+      echo "})"
+    fi
+  } >"$LOOK"
+}
+
+apply_scale() {
+  local scale px
+  scale="$(cfg typography scale keep)"
+  [[ $scale == keep ]] && return
+  have omarchy-display-text-size || return
+  case $scale in
+    1 | 1.0) omarchy-display-text-size reset >/dev/null 2>&1; return ;;
+    1.25) px=15 ;;
+    1.5) px=18 ;;
+    1.75 | 2 | 2.0) px=20 ;;
+  esac
+  omarchy-display-text-size "$px" >/dev/null 2>&1
+  if [[ $scale =~ ^(1\.75|2|2\.0)$ ]]; then
+    notify "文字已调到最大 20" "还想更大，可以按 SUPER + / 放大整个屏幕（不会自动改你的显示器设置）"
+  fi
+}
+
+# Hyprland reports config errors after a reload; if any comes from our file,
+# fall back to the solid level so the desktop always stays usable.
+check_hypr_errors() {
+  have hyprctl || return 0
+  local errs
+  errs="$(hyprctl configerrors 2>/dev/null || true)"
+  if grep -q 'zz-aero7' <<<"$errs"; then
+    return 1
+  fi
+  return 0
+}
+
+cmd_apply() {
+  have omarchy-theme-set || die "这台电脑不是 Omarchy（没有 omarchy-theme-set）"
+  ensure_config
+  local problems
+  if ! problems="$(validate_config)"; then
+    die "设置文件有错：$problems"
+  fi
+  cmd_backup >/dev/null
+
+  # Theme first: it supplies the colours, shell glass and wallpapers.
+  # Always set it, so an updated theme is picked up after `install.sh` runs again.
+  omarchy-theme-set aero7 >/dev/null 2>&1 || die "切换到 aero7 主题失败"
+  local variant n=1
+  variant="$(cfg theme variant aero-blue)"
+  [[ $variant == aero-dusk ]] && n=2
+  local wall="$STATE/omarchy/current/theme/backgrounds/$n-$variant.webp"
+  [[ -f $wall ]] && have omarchy-theme-bg-set && omarchy-theme-bg-set "$wall" >/dev/null 2>&1
+
+  write_look
+  reload_hypr
+  sleep 0.5
+  if ! check_hypr_errors; then
+    set_cfg effects level '"solid"'
+    write_look
+    reload_hypr
+    notify "Aero7：玻璃效果设置出错，已自动退回不透明档" "可以运行 aero7 status 查看"
+  fi
+
+  if have omarchy-bar; then
+    omarchy-bar position "$(cfg taskbar position bottom)" >/dev/null 2>&1
+    if [[ $(cfg taskbar glass true) == true && $(cfg effects level full) != solid ]]; then
+      omarchy-bar background glassy >/dev/null 2>&1
+    else
+      omarchy-bar background opaque >/dev/null 2>&1
+    fi
+  fi
+  apply_scale
+  notify "Aero7 已应用" "效果档位：$(cfg effects level full)；改设置运行 aero7 edit"
+}
+
+# ------------------------------------------------------------------- restore --
+cmd_restore() {
+  rm -f "$LOOK"
+  if [[ -f $BACKUP/done ]]; then
+    local v
+    v="$(cat "$BACKUP/theme" 2>/dev/null)"
+    if [[ -n $v && $v != aero7 ]] && have omarchy-theme-set; then
+      omarchy-theme-set "$v" >/dev/null 2>&1 || echo "恢复主题 $v 失败，请在菜单里自己选主题" >&2
+    fi
+    v="$(cat "$BACKUP/background" 2>/dev/null)"
+    [[ -n $v && -e $v ]] && have omarchy-theme-bg-set && omarchy-theme-bg-set "$v" >/dev/null 2>&1
+    if have omarchy-bar; then
+      v="$(cat "$BACKUP/bar-position" 2>/dev/null)"; [[ $v =~ ^(top|bottom|left|right)$ ]] && omarchy-bar position "$v" >/dev/null 2>&1
+      v="$(cat "$BACKUP/bar-background" 2>/dev/null)"; [[ $v =~ ^(opaque|glassy|none)$ ]] && omarchy-bar background "$v" >/dev/null 2>&1
+    fi
+    if have omarchy-display-text-size; then
+      v="$(cat "$BACKUP/text-size" 2>/dev/null)"
+      if [[ $v =~ ^[0-9]+$ ]]; then omarchy-display-text-size "$v" >/dev/null 2>&1; else omarchy-display-text-size reset >/dev/null 2>&1; fi
+    fi
+    rm -rf "$BACKUP"
+  fi
+  reload_hypr
+  notify "已恢复安装 Aero7 之前的样子"
+}
+
+# --------------------------------------------------------------------- other --
+cmd_level() {
+  [[ ${1:-} =~ ^(full|light|solid)$ ]] || die "档位只能是 full（完整玻璃）、light（轻玻璃）或 solid（不透明）"
+  set_cfg effects level "\"$1\""
+  cmd_apply
+}
+
+cmd_scale() {
+  local s
+  case ${1:-} in
+    keep) s='"keep"' ;; 100) s=1.0 ;; 125) s=1.25 ;; 150) s=1.5 ;; 175) s=1.75 ;; 200) s=2.0 ;;
+    *) die "缩放只能是 keep、100、125、150、175、200" ;;
+  esac
+  set_cfg typography scale "$s"
+  apply_scale
+  notify "文字缩放：${1}"
+}
+
+cmd_status() {
+  cat <<EOF
+Omarchy Aero7 $VERSION
+当前主题 theme:    $(current_theme)
+效果档位 level:    $(cfg effects level full)
+透明度 opacity:    $(cfg glass opacity 0.86)   模糊 blur: $(cfg glass blur true) / $(cfg glass blur_strength 8)
+圆角 corners:      $(cfg window corner_radius 7)   边框 border: $(cfg window border_size 2)   阴影 shadow: $(cfg window shadow true)
+任务栏 taskbar:    $(cfg taskbar position bottom)，玻璃 glass: $(cfg taskbar glass true)
+文字缩放 scale:    $(cfg typography scale keep)
+设置文件 config:   $CONFIG
+备份 backup:       $([[ -f $BACKUP/done ]] && echo "$BACKUP（$(cat "$BACKUP/done")）" || echo "无 none")
+EOF
+}
+
+cmd_validate() {
+  local problems ok=0
+  if problems="$(validate_config)"; then echo "设置文件正确 config ok"; else echo "$problems"; ok=1; fi
+  [[ -d $HOME/.config/omarchy/themes/aero7 ]] && echo "主题已安装 theme installed" || { echo "主题没有安装 theme missing"; ok=1; }
+  if [[ -f $LOOK ]]; then
+    if check_hypr_errors; then echo "Hyprland 设置无错误 no Hyprland errors"; else echo "Hyprland 报告 zz-aero7.lua 有错误"; ok=1; fi
+  fi
+  return $ok
+}
+
+cmd_edit() {
+  ensure_config
+  if have omarchy-launch-editor; then
+    omarchy-launch-editor "$CONFIG"
+  else
+    "${EDITOR:-nano}" "$CONFIG"
+  fi
+  echo "改完运行 aero7 apply 生效"
+}
+
+cmd_uninstall() {
+  cmd_restore >/dev/null 2>&1 || true
+  rm -rf "$HOME/.config/omarchy/themes/aero7" "$CONFIG_DIR" "$DATA"
+  [[ -L $HOME/.local/bin/aero7 ]] && rm -f "$HOME/.local/bin/aero7"
+  reload_hypr
+  notify "Aero7 已卸载" "桌面已恢复安装前的样子"
+  [[ $APP_DIR == "$HOME/.local/share/omarchy-aero7" ]] && rm -rf "$APP_DIR"
+}
+
+case "${1:-status}" in
+  apply) cmd_apply ;;
+  level) cmd_level "${2:-}" ;;
+  scale) cmd_scale "${2:-}" ;;
+  edit) cmd_edit ;;
+  status) cmd_status ;;
+  validate) cmd_validate ;;
+  backup) cmd_backup ;;
+  restore) cmd_restore ;;
+  uninstall) cmd_uninstall ;;
+  version | --version | -v) echo "omarchy-aero7 $VERSION" ;;
+  help | --help | -h) sed -n '2,11p' "$SELF" | sed 's/^# \{0,1\}//' ;;
+  *) echo "未知命令：$1（用 aero7 help 查看）" >&2; exit 1 ;;
+esac
